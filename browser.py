@@ -1,73 +1,69 @@
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtWebEngineWidgets import *
+from PyQt5.QtCore import QUrl
+print("Imported")
 
-import socket
-import ssl
+class WebBrowser(QMainWindow):
 
-def parse_url(url):
-    scheme, url = url.split("://", 1)
-    if "/" not in url:
-        url = url + "/"
-    host, path = url.split("/", 1)
-    return (scheme, host, "/" + path)
 
-def request(url):
-    (scheme, host, path) = parse_url(url)
-    assert scheme in ["http", "https"], \
-        "Unknown scheme {}".format(scheme)
+    def __init__(self, *args, **kwargs):
+        super(WebBrowser, self).__init__(*args, **kwargs)
+        
+        self.window = QWidget()
+        self.window.setWindowTitle("Simple Web Browser")
 
-    port = 80 if scheme == "http" else 443
+        self.layout = QVBoxLayout()
+        self.horizontal = QHBoxLayout()
 
-    if ":" in host:
-        host, port = host.split(":", 1)
-        port = int(port)
 
-    s = socket.socket(
-        family=socket.AF_INET,
-        type=socket.SOCK_STREAM,
-        proto=socket.IPPROTO_TCP,
-    )
-    s.connect((host, port))
+        self.url_bar = QTextEdit()
+        self.url_bar.setMaximumHeight(30)
 
-    if scheme == "https":
-        ctx = ssl.create_default_context()
-        s = ctx.wrap_socket(s, server_hostname=host)
+        self.go_btn = QPushButton("Go")
+        self.go_btn.setMinimumHeight(30)
 
-    s.send(("GET {} HTTP/1.0\r\n".format(path) +
-            "Host: {}\r\n\r\n".format(host)).encode("utf8"))
-    response = s.makefile("r", encoding="utf8", newline="\r\n")
+        self.back_btn = QPushButton("Back")
+        self.back_btn.setMinimumHeight(30)
 
-    statusline = response.readline()
-    version, status, explanation = statusline.split(" ", 2)
-    assert status == "200", "{}: {}".format(status, explanation)
+        self.forward_btn = QPushButton("Forward")
+        self.forward_btn.setMinimumHeight(30)
 
-    headers = {}
-    while True:
-        line = response.readline()
-        if line == "\r\n": break
-        header, value = line.split(":", 1)
-        headers[header.lower()] = value.strip()
+        self.horizontal.addWidget(self.url_bar)
+        self.horizontal.addWidget(self.go_btn)
+        self.horizontal.addWidget(self.back_btn)
+        self.horizontal.addWidget(self.forward_btn)
 
-    assert "transfer-encoding" not in headers
-    assert "content-encoding" not in headers
+        self.browser = QWebEngineView()
 
-    body = response.read()
-    s.close()
+        self.go_btn.clicked.connect(lambda: self.navigate(self.url_bar.toPlainText()))
+        self.back_btn.clicked.connect(self.browser.back)
+        self.forward_btn.clicked.connect(self.browser.forward)
 
-    return headers, body
+        self.layout.addLayout(self.horizontal)
+        self.layout.addWidget(self.browser)
+        
+        self.browser.setUrl(QUrl("http://google.com"))
+        self.url_bar.setText("http://google.com")
 
-def show(body):
-    in_angle = False
-    for c in body:
-        if c == "<":
-            in_angle = True
-        elif c == ">":
-            in_angle = False
-        elif not in_angle:
-            print(c, end="")
+        self.window.setLayout(self.layout)
+        self.window.show()
 
-def load(url):
-    headers, body = request(url)
-    show(body)
 
-if __name__ == "__main__":
-    import sys
-    load(sys.argv[1])
+    def navigate(self, url):
+        if not url.startswith("http"):
+            url = "http://"+url
+            self.url_bar.setText(url)
+        self.browser.setUrl(QUrl(url))
+
+print("defined")
+app = QApplication([])
+window = WebBrowser()
+app.exec_()
+
+
+
+
+
+
+
